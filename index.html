@@ -19,6 +19,7 @@
             padding: 20px;
             display: flex;
             justify-content: center;
+            align-items: center;
         }
 
         @keyframes gradientBG {
@@ -61,7 +62,7 @@
         }
     </style>
 </head>
-<body class="flex justify-center items-center">
+<body>
 
     <div class="calendar-wrapper">
         <!-- Top Status & Actions Bar -->
@@ -112,6 +113,7 @@
         </div>
     </div>
 
+    <!-- Custom Modal Dialog -->
     <div id="customModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden">
         <div class="bg-slate-900 border border-white/20 p-6 rounded-2xl max-w-md w-full mx-4 shadow-2xl">
             <h3 id="modalTitle" class="text-lg font-bold text-cyan-400 mb-3">Nöbet Değişikliği</h3>
@@ -133,12 +135,13 @@
         </div>
     </div>
 
+    <!-- Firebase SDK & Application Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'nobet-cizelgesi-app';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'nobet-cizelgesi-app-v2';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "demo-key",
             authDomain: "demo.firebaseapp.com",
@@ -159,7 +162,8 @@
             'OĞUZHAN': 'oguzhan.kontek@innova.com.tr'
         };
 
-        let dailyOverrides = {};
+        // Fallback to localStorage if offline
+        let dailyOverrides = JSON.parse(localStorage.getItem('nobet_overrides_local') || '{}');
         const todayReal = new Date();
         let currentYear = todayReal.getFullYear();
         let currentMonth = todayReal.getMonth();
@@ -307,12 +311,14 @@
                     yeniKisi = yeniKisi.trim().toUpperCase();
                     if (persons.includes(yeniKisi)) {
                         dailyOverrides[dateKey] = yeniKisi;
+                        localStorage.setItem('nobet_overrides_local', JSON.stringify(dailyOverrides));
                         
+                        // Cloud sync update
                         try {
                             const docRef = doc(db, 'artifacts', appId, 'public_data', 'schedule_overrides');
                             await setDoc(docRef, dailyOverrides, { merge: true });
                         } catch (err) {
-                            console.error("Cloud kaydetme hatası:", err);
+                            console.error("Bulut kaydetme hatası:", err);
                         }
 
                         renderCalendar();
@@ -386,11 +392,7 @@
 
         async function initFirebase() {
             try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
+                await signInAnonymously(auth);
 
                 const statusEl = document.getElementById('syncStatus');
                 if(statusEl) {
@@ -402,6 +404,7 @@
                 onSnapshot(docRef, (docSnap) => {
                     if (docSnap.exists()) {
                         dailyOverrides = docSnap.data();
+                        localStorage.setItem('nobet_overrides_local', JSON.stringify(dailyOverrides));
                         renderCalendar();
                     }
                 }, (error) => {
