@@ -65,11 +65,10 @@
 <body>
 
     <div class="calendar-wrapper" id="mainAppContainer">
-        <!-- Top Status & Actions Bar -->
         <div class="flex justify-between items-center mb-5 pb-4 border-b border-white/10 flex-wrap gap-4">
             <div class="flex items-center gap-3">
                 <div class="text-lg font-semibold text-cyan-400 drop-shadow" id="liveClock">&#128338; Yükleniyor...</div>
-                <div id="syncStatus" class="text-xs px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium">Bulut bağlantısı kuruluyor...</div>
+                <div id="syncStatus" class="text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium">Sistem Hazır</div>
             </div>
             <div class="flex gap-2 flex-wrap">
                 <button class="bg-gradient-to-r from-emerald-500 to-teal-600 text-black font-bold px-4 py-2.5 rounded-xl text-sm transition hover:opacity-90 flex items-center gap-1.5" onclick="sendCurrentWeekMail()">
@@ -135,13 +134,13 @@
         </div>
     </div>
 
-    <!-- Firebase SDK & App Logic -->
+    <!-- JavaScript Application Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'nobet-cizelgesi-app-v2';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'nobet-cizelgesi-app-v3';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "demo-key",
             authDomain: "demo.firebaseapp.com",
@@ -150,7 +149,6 @@
 
         let db = null;
         let auth = null;
-        let useCloud = true;
 
         const persons = ['ADEM', 'FATİH', 'RASİM', 'OĞUZHAN'];
         const baseDate = new Date(2026, 9, 12, 0, 0, 0); // 12 Ekim 2026 Pazartesi Başlangıç
@@ -312,12 +310,12 @@
                         dailyOverrides[dateKey] = yeniKisi;
                         localStorage.setItem('nobet_daily_overrides', JSON.stringify(dailyOverrides));
                         
-                        if (useCloud && db) {
+                        if (db) {
                             try {
                                 const docRef = doc(db, 'artifacts', appId, 'public_data', 'schedule_overrides');
                                 await setDoc(docRef, dailyOverrides, { merge: true });
                             } catch (err) {
-                                console.warn("Cloud save warning (fallback to local):", err);
+                                console.warn("Cloud save notice:", err);
                             }
                         }
 
@@ -417,20 +415,28 @@
                         renderCalendar();
                     }
                 }, (error) => {
-                    console.warn("Firestore snapshot notice:", error.message);
+                    console.warn("Firestore sync notice:", error.message);
                 });
 
             } catch (err) {
-                useCloud = false;
-                console.warn("Offline / Local mode active:", err);
+                console.warn("Cloud fallback active:", err);
                 const statusEl = document.getElementById('syncStatus');
                 if(statusEl) {
-                    statusEl.innerText = "Yerel Mod (Çevrimdışı)";
+                    statusEl.innerText = "Yerel Mod";
                     statusEl.className = "text-xs px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium";
                 }
             }
 
             renderCalendar();
+            
+            // Periyodik olarak yerel veriyi tazeleyelim
+            setInterval(() => {
+                let localData = localStorage.getItem('nobet_daily_overrides');
+                if(localData) {
+                    dailyOverrides = JSON.parse(localData);
+                    renderCalendar();
+                }
+            }, 3000);
         }
 
         initFirebase();
