@@ -8,6 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
+
         body {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
@@ -18,13 +19,14 @@
             padding: 20px;
             display: flex;
             justify-content: center;
-            align-items: center;
         }
+
         @keyframes gradientBG {
             0% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
             100% { background-position: 0% 50%; }
         }
+
         .calendar-wrapper {
             width: 100%;
             max-width: 1200px;
@@ -36,6 +38,7 @@
             padding: 25px;
             box-shadow: 0 25px 45px rgba(0, 0, 0, 0.3);
         }
+
         .badge {
             padding: 6px;
             border-radius: 8px;
@@ -44,10 +47,12 @@
             font-size: 0.8rem;
             font-weight: 800;
         }
+
         .person-ADEM { background: linear-gradient(135deg, #00c6ff, #0072ff); }
         .person-FATİH { background: linear-gradient(135deg, #11998e, #38ef7d); }
         .person-RASİM { background: linear-gradient(135deg, #f12711, #f5af19); }
         .person-OĞUZHAN { background: linear-gradient(135deg, #8e2de2, #4a00e0); }
+
         @media print {
             body { background: white; color: black; padding: 0; }
             .calendar-wrapper { box-shadow: none; border: none; background: white; backdrop-filter: none; }
@@ -56,24 +61,18 @@
         }
     </style>
 </head>
-<body>
+<body class="flex justify-center items-center">
 
-    <div class="calendar-wrapper" id="mainAppContainer">
-        <!-- Top status and sync actions -->
+    <div class="calendar-wrapper">
+        <!-- Top Status & Actions Bar -->
         <div class="flex justify-between items-center mb-5 pb-4 border-b border-white/10 flex-wrap gap-4">
             <div class="flex items-center gap-3">
                 <div class="text-lg font-semibold text-cyan-400 drop-shadow" id="liveClock">&#128338; Yükleniyor...</div>
-                <div id="syncStatus" class="text-xs px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-medium">Ekip Ortak Takvimi (Senkron Aktif)</div>
+                <div id="syncStatus" class="text-xs px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium">Bulut bağlantısı kuruluyor...</div>
             </div>
             <div class="flex gap-2 flex-wrap">
                 <button class="bg-gradient-to-r from-emerald-500 to-teal-600 text-black font-bold px-4 py-2.5 rounded-xl text-sm transition hover:opacity-90 flex items-center gap-1.5" onclick="sendCurrentWeekMail()">
                     &#9993; Bu Haftanın Nöbetçisine Mail Gönder
-                </button>
-                <button class="bg-cyan-500 hover:bg-cyan-600 text-black font-bold px-3 py-2.5 rounded-xl text-sm transition flex items-center gap-1" onclick="exportDataPrompt()" title="Değişiklikleri Kopyala / Paylaş">
-                    &#128279; Ekiple Paylaş
-                </button>
-                <button class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold px-3 py-2.5 rounded-xl text-sm transition flex items-center gap-1" onclick="importDataPrompt()" title="Güncellemeyi Yükle">
-                    &#128229; Veri İçe Aktar
                 </button>
             </div>
         </div>
@@ -113,7 +112,6 @@
         </div>
     </div>
 
-    <!-- Custom Modal Dialog -->
     <div id="customModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden">
         <div class="bg-slate-900 border border-white/20 p-6 rounded-2xl max-w-md w-full mx-4 shadow-2xl">
             <h3 id="modalTitle" class="text-lg font-bold text-cyan-400 mb-3">Nöbet Değişikliği</h3>
@@ -135,22 +133,22 @@
         </div>
     </div>
 
-    <!-- Data Import/Export Modal Dialog -->
-    <div id="dataModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden">
-        <div class="bg-slate-900 border border-white/20 p-6 rounded-2xl max-w-lg w-full mx-4 shadow-2xl">
-            <h3 id="dataModalTitle" class="text-lg font-bold text-cyan-400 mb-3">Veri Paylaşımı</h3>
-            <p id="dataModalDesc" class="text-sm text-slate-300 mb-3">Ekip arkadaşlarınızın değişiklikleri görmesi için aşağıdaki kodu kopyalayıp WhatsApp grubuna atabilirsiniz:</p>
-            
-            <textarea id="dataTextarea" class="w-full h-32 bg-slate-800 border border-slate-700 rounded-xl p-3 text-white font-mono text-xs focus:outline-none focus:border-cyan-400 mb-4" placeholder="Veri kodu buraya gelecek..."></textarea>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-            <div class="flex justify-end gap-3">
-                <button onclick="closeDataModal()" class="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl text-sm font-semibold transition">Kapat</button>
-                <button id="dataActionBtn" onclick="executeDataAction()" class="bg-emerald-500 hover:bg-emerald-600 text-black font-bold px-5 py-2 rounded-xl text-sm transition">Kopyala</button>
-            </div>
-        </div>
-    </div>
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'nobet-cizelgesi-app';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "demo-key",
+            authDomain: "demo.firebaseapp.com",
+            projectId: "demo-project"
+        };
 
-    <script>
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
         const persons = ['ADEM', 'FATİH', 'RASİM', 'OĞUZHAN'];
         const baseDate = new Date(2026, 9, 12, 0, 0, 0); // 12 Ekim 2026 Pazartesi Başlangıç
         
@@ -161,7 +159,7 @@
             'OĞUZHAN': 'oguzhan.kontek@innova.com.tr'
         };
 
-        let dailyOverrides = JSON.parse(localStorage.getItem('nobet_daily_overrides') || '{}');
+        let dailyOverrides = {};
         const todayReal = new Date();
         let currentYear = todayReal.getFullYear();
         let currentMonth = todayReal.getMonth();
@@ -309,7 +307,14 @@
                     yeniKisi = yeniKisi.trim().toUpperCase();
                     if (persons.includes(yeniKisi)) {
                         dailyOverrides[dateKey] = yeniKisi;
-                        localStorage.setItem('nobet_daily_overrides', JSON.stringify(dailyOverrides));
+                        
+                        try {
+                            const docRef = doc(db, 'artifacts', appId, 'public_data', 'schedule_overrides');
+                            await setDoc(docRef, dailyOverrides, { merge: true });
+                        } catch (err) {
+                            console.error("Cloud kaydetme hatası:", err);
+                        }
+
                         renderCalendar();
                     }
                 }
@@ -323,58 +328,6 @@
             if (currentMonth > 11) { currentMonth = 0; currentYear++; } 
             else if (currentMonth < 0) { currentMonth = 11; currentYear--; }
             renderCalendar();
-        };
-
-        // --- Data Sync Export/Import Functions for 100% Reliable Team Sync ---
-        let currentDataMode = 'export';
-
-        window.exportDataPrompt = function() {
-            currentDataMode = 'export';
-            document.getElementById('dataModalTitle').innerText = "Değişiklikleri Ekiple Paylaş";
-            document.getElementById('dataModalDesc').innerText = "Aşağıdaki kod tüm nöbet değişikliklerinizi içerir. Bu kodu kopyalayıp WhatsApp grubuna atabilirsiniz:";
-            document.getElementById('dataTextarea').value = JSON.stringify(dailyOverrides);
-            document.getElementById('dataTextarea').readOnly = true;
-            document.getElementById('dataActionBtn').innerText = "Kodu Kopyala";
-            document.getElementById('dataModal').classList.remove('hidden');
-        };
-
-        window.importDataPrompt = function() {
-            currentDataMode = 'import';
-            document.getElementById('dataModalTitle').innerText = "Ekip Verisini İçe Aktar";
-            document.getElementById('dataModalDesc').innerText = "Arkadaşınızın WhatsApp'tan gönderdiği güncel kodu aşağıdaki kutuya yapıştırın ve 'Uygula' butonuna basın:";
-            document.getElementById('dataTextarea').value = "";
-            document.getElementById('dataTextarea').readOnly = false;
-            document.getElementById('dataActionBtn').innerText = "Takvimi Güncelle";
-            document.getElementById('dataModal').classList.remove('hidden');
-        };
-
-        window.closeDataModal = function() {
-            document.getElementById('dataModal').classList.add('hidden');
-        };
-
-        window.executeDataAction = function() {
-            const textarea = document.getElementById('dataTextarea');
-            if (currentDataMode === 'export') {
-                textarea.select();
-                document.execCommand('copy');
-                alert("Paylaşım kodu panoya kopyalandı! Şimdi WhatsApp'a yapıştırıp ekibinize gönderebilirsiniz.");
-                closeDataModal();
-            } else {
-                try {
-                    let parsed = JSON.parse(textarea.value.trim());
-                    if (typeof parsed === 'object' && parsed !== null) {
-                        dailyOverrides = parsed;
-                        localStorage.setItem('nobet_daily_overrides', JSON.stringify(dailyOverrides));
-                        renderCalendar();
-                        alert("Ekip verisi başarıyla yüklendi ve takvim güncellendi!");
-                        closeDataModal();
-                    } else {
-                        alert("Geçersiz kod! Lütfen doğru kodu yapıştırdığınızdan emin olun.");
-                    }
-                } catch(e) {
-                    alert("Kod okunamadı! Hatalı veya eksik metin.");
-                }
-            }
         };
 
         window.sendCurrentWeekMail = function() {
@@ -431,7 +384,43 @@
             window.location.href = mailtoLink;
         };
 
-        renderCalendar();
+        async function initFirebase() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                const statusEl = document.getElementById('syncStatus');
+                if(statusEl) {
+                    statusEl.innerText = "Bulut senkronizasyonu aktif (Canlı)";
+                    statusEl.className = "text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium";
+                }
+
+                const docRef = doc(db, 'artifacts', appId, 'public_data', 'schedule_overrides');
+                onSnapshot(docRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        dailyOverrides = docSnap.data();
+                        renderCalendar();
+                    }
+                }, (error) => {
+                    console.error("Firestore sync error:", error);
+                });
+
+            } catch (err) {
+                console.error("Auth / Firebase hatası:", err);
+                const statusEl = document.getElementById('syncStatus');
+                if(statusEl) {
+                    statusEl.innerText = "Çevrimdışı Mod (Yerel depolama)";
+                    statusEl.className = "text-xs px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 font-medium";
+                }
+            }
+
+            renderCalendar();
+        }
+
+        initFirebase();
     </script>
 </body>
 </html>
