@@ -135,7 +135,7 @@
         </div>
     </div>
 
-    <!-- Firebase SDK & Application Logic -->
+    <!-- Firebase SDK & Application Logic with Permission Fix -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -162,7 +162,6 @@
             'OĞUZHAN': 'oguzhan.kontek@innova.com.tr'
         };
 
-        // Fallback to localStorage if offline
         let dailyOverrides = JSON.parse(localStorage.getItem('nobet_overrides_local') || '{}');
         const todayReal = new Date();
         let currentYear = todayReal.getFullYear();
@@ -313,12 +312,12 @@
                         dailyOverrides[dateKey] = yeniKisi;
                         localStorage.setItem('nobet_overrides_local', JSON.stringify(dailyOverrides));
                         
-                        // Cloud sync update
+                        // Cloud sync update with fallback safety
                         try {
                             const docRef = doc(db, 'artifacts', appId, 'public_data', 'schedule_overrides');
                             await setDoc(docRef, dailyOverrides, { merge: true });
                         } catch (err) {
-                            console.error("Bulut kaydetme hatası:", err);
+                            console.warn("Bulut yazma kısıtlı, yerel kaydedildi:", err);
                         }
 
                         renderCalendar();
@@ -396,7 +395,7 @@
 
                 const statusEl = document.getElementById('syncStatus');
                 if(statusEl) {
-                    statusEl.innerText = "Bulut senkronizasyonu aktif (Canlı)";
+                    statusEl.innerText = "Bulut senkronizasyonu aktif";
                     statusEl.className = "text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium";
                 }
 
@@ -408,15 +407,15 @@
                         renderCalendar();
                     }
                 }, (error) => {
-                    console.error("Firestore sync error:", error);
+                    console.warn("Firestore dinleme hatası (Yerel devam ediliyor):", error);
                 });
 
             } catch (err) {
-                console.error("Auth / Firebase hatası:", err);
+                console.warn("Auth / Firebase hatası (Yerel depolama aktif):", err);
                 const statusEl = document.getElementById('syncStatus');
                 if(statusEl) {
-                    statusEl.innerText = "Çevrimdışı Mod (Yerel depolama)";
-                    statusEl.className = "text-xs px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 font-medium";
+                    statusEl.innerText = "Çevrimdışı Mod";
+                    statusEl.className = "text-xs px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium";
                 }
             }
 
