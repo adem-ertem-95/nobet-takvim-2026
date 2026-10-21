@@ -141,7 +141,7 @@
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'nobet-cizelgesi-app-v2';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'nobet-cizelgesi-app-v3';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "demo-key",
             authDomain: "demo.firebaseapp.com",
@@ -162,7 +162,7 @@
             'OĞUZHAN': 'oguzhan.kontek@innova.com.tr'
         };
 
-        let dailyOverrides = JSON.parse(localStorage.getItem('nobet_overrides_local') || '{}');
+        let dailyOverrides = JSON.parse(localStorage.getItem('nobet_overrides_local_v3') || '{}');
         const todayReal = new Date();
         let currentYear = todayReal.getFullYear();
         let currentMonth = todayReal.getMonth();
@@ -310,11 +310,11 @@
                     yeniKisi = yeniKisi.trim().toUpperCase();
                     if (persons.includes(yeniKisi)) {
                         dailyOverrides[dateKey] = yeniKisi;
-                        localStorage.setItem('nobet_overrides_local', JSON.stringify(dailyOverrides));
+                        localStorage.setItem('nobet_overrides_local_v3', JSON.stringify(dailyOverrides));
                         
                         // Cloud sync update with fallback safety
                         try {
-                            const docRef = doc(db, 'artifacts', appId, 'public_data', 'schedule_overrides');
+                            const docRef = doc(db, 'artifacts', appId, 'public_data', 'schedule_overrides_v3');
                             await setDoc(docRef, dailyOverrides, { merge: true });
                         } catch (err) {
                             console.warn("Bulut yazma kısıtlı, yerel kaydedildi:", err);
@@ -399,11 +399,11 @@
                     statusEl.className = "text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium";
                 }
 
-                const docRef = doc(db, 'artifacts', appId, 'public_data', 'schedule_overrides');
+                const docRef = doc(db, 'artifacts', appId, 'public_data', 'schedule_overrides_v3');
                 onSnapshot(docRef, (docSnap) => {
                     if (docSnap.exists()) {
                         dailyOverrides = docSnap.data();
-                        localStorage.setItem('nobet_overrides_local', JSON.stringify(dailyOverrides));
+                        localStorage.setItem('nobet_overrides_local_v3', JSON.stringify(dailyOverrides));
                         renderCalendar();
                     }
                 }, (error) => {
