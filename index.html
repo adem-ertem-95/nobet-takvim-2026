@@ -63,14 +63,14 @@
         <div class="flex justify-between items-center mb-5 pb-4 border-b border-white/10 flex-wrap gap-4">
             <div class="flex items-center gap-3">
                 <div class="text-lg font-semibold text-cyan-400 drop-shadow" id="liveClock">&#128338; Yükleniyor...</div>
-                <div id="syncStatus" class="text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium">Canlı Senkronizasyon Aktif</div>
+                <div id="syncStatus" class="text-xs px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium">Bulut bağlantısı kuruluyor...</div>
             </div>
             <div class="flex gap-2 flex-wrap">
                 <button class="bg-gradient-to-r from-emerald-500 to-teal-600 text-black font-bold px-4 py-2.5 rounded-xl text-sm transition hover:opacity-90 flex items-center gap-1.5" onclick="sendCurrentWeekMail()">
                     &#9993; Bu Haftanın Nöbetçisine Mail Gönder
                 </button>
-                <button class="bg-cyan-500 hover:bg-cyan-600 text-black font-bold px-4 py-2.5 rounded-xl text-sm transition flex items-center gap-1.5" onclick="syncWithCloud()">
-                    &#8635; Değişiklikleri Eşitle
+                <button class="bg-cyan-500 hover:bg-cyan-600 text-black font-bold px-4 py-2.5 rounded-xl text-sm transition flex items-center gap-1.5" onclick="forceSyncCloud()">
+                    &#8635; Verileri Yenile
                 </button>
             </div>
         </div>
@@ -132,13 +132,14 @@
         </div>
     </div>
 
-    <!-- Firebase SDK & Application Logic -->
+    <!-- Firebase SDK & Live Realtime Sync Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'nobet-cizelgesi-app-v4';
+        // Global environment variables provided by container or fallback
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'nobet-cizelgesi-app-v5';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "demo-key",
             authDomain: "demo.firebaseapp.com",
@@ -159,7 +160,7 @@
             'OĞUZHAN': 'oguzhan.kontek@innova.com.tr'
         };
 
-        let dailyOverrides = JSON.parse(localStorage.getItem('nobet_overrides_local_v4') || '{}');
+        let dailyOverrides = {};
         const todayReal = new Date();
         let currentYear = todayReal.getFullYear();
         let currentMonth = todayReal.getMonth();
@@ -307,17 +308,14 @@
                     yeniKisi = yeniKisi.trim().toUpperCase();
                     if (persons.includes(yeniKisi)) {
                         dailyOverrides[dateKey] = yeniKisi;
-                        localStorage.setItem('nobet_overrides_local_v4', JSON.stringify(dailyOverrides));
+                        renderCalendar(); // Anında ekranda güncelle
                         
-                        // Cloud sync update
                         try {
-                            const docRef = doc(db, 'artifacts', appId, 'public_data', 'schedule_overrides_v4');
+                            const docRef = doc(db, 'artifacts', appId, 'public_data', 'schedule_overrides_v5');
                             await setDoc(docRef, dailyOverrides, { merge: true });
                         } catch (err) {
-                            console.warn("Bulut yazma uyarısı:", err);
+                            console.error("Bulut kaydetme hatası:", err);
                         }
-
-                        renderCalendar();
                     }
                 }
             };
@@ -332,20 +330,16 @@
             renderCalendar();
         };
 
-        window.syncWithCloud = async function() {
+        window.forceSyncCloud = async function() {
             try {
-                const docRef = doc(db, 'artifacts', appId, 'public_data', 'schedule_overrides_v4');
+                const docRef = doc(db, 'artifacts', appId, 'public_data', 'schedule_overrides_v5');
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
                     dailyOverrides = docSnap.data();
-                    localStorage.setItem('nobet_overrides_local_v4', JSON.stringify(dailyOverrides));
                     renderCalendar();
-                    alert("Buluttaki en güncel veriler başarıyla yüklendi!");
-                } else {
-                    alert("Bulutta henüz kayıtlı değişiklik bulunmuyor.");
                 }
-            } catch (err) {
-                alert("Eşitleme sırasında bağlantı kurulamadı.");
+            } catch(e) {
+                console.error(e);
             }
         };
 
@@ -405,31 +399,37 @@
 
         async function initFirebase() {
             try {
-                await signInAnonymously(auth);
-
-                const docRef = doc(db, 'artifacts', appId, 'public_data', 'schedule_overrides_v4');
-                
-                // İlk açılışta veriyi çek
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    dailyOverrides = docSnap.data();
-                    localStorage.setItem('nobet_overrides_local_v4', JSON.stringify(dailyOverrides));
-                    renderCalendar();
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
                 }
 
-                // Canlı dinleyici
+                const statusEl = document.getElementById('syncStatus');
+                if(statusEl) {
+                    statusEl.innerText = "Canlı Bulut Senkronizasyonu Aktif";
+                    statusEl.className = "text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium";
+                }
+
+                const docRef = doc(db, 'artifacts', appId, 'public_data', 'schedule_overrides_v5');
+                
+                // Realtime subscription
                 onSnapshot(docRef, (docSnap) => {
                     if (docSnap.exists()) {
                         dailyOverrides = docSnap.data();
-                        localStorage.setItem('nobet_overrides_local_v4', JSON.stringify(dailyOverrides));
                         renderCalendar();
                     }
                 }, (error) => {
-                    console.warn("Canlı dinleme uyarısı:", error);
+                    console.warn("Realtime listener error:", error);
                 });
 
             } catch (err) {
-                console.warn("Çevrimdışı mod:", err);
+                console.warn("Auth warning:", err);
+                const statusEl = document.getElementById('syncStatus');
+                if(statusEl) {
+                    statusEl.innerText = "Çevrimdışı Çalışma Modu";
+                    statusEl.className = "text-xs px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 font-medium";
+                }
             }
 
             renderCalendar();
