@@ -141,7 +141,7 @@
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'nobet-cizelgesi-app';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'nobet-cizelgesi-app-v2';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "demo-key",
             authDomain: "demo.firebaseapp.com",
@@ -410,18 +410,6 @@
 
                 const docRef = doc(db, 'artifacts', appId, 'public_data', 'schedule_overrides');
                 
-                // Try fetching once first to verify permission
-                try {
-                    const snap = await getDoc(docRef);
-                    if (snap.exists()) {
-                        dailyOverrides = { ...snap.data(), ...dailyOverrides };
-                        localStorage.setItem('nobet_daily_overrides', JSON.stringify(dailyOverrides));
-                        renderCalendar();
-                    }
-                } catch (e) {
-                    console.warn("Initial read restricted, using local storage cache.");
-                }
-
                 onSnapshot(docRef, (docSnap) => {
                     if (docSnap.exists()) {
                         dailyOverrides = docSnap.data();
@@ -429,7 +417,7 @@
                         renderCalendar();
                     }
                 }, (error) => {
-                    console.warn("Firestore snapshot permission notice:", error.message);
+                    console.warn("Firestore snapshot notice:", error.message);
                 });
 
             } catch (err) {
