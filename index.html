@@ -8,7 +8,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-
         body {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
@@ -21,13 +20,11 @@
             justify-content: center;
             align-items: center;
         }
-
         @keyframes gradientBG {
             0% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
             100% { background-position: 0% 50%; }
         }
-
         .calendar-wrapper {
             width: 100%;
             max-width: 1200px;
@@ -39,7 +36,6 @@
             padding: 25px;
             box-shadow: 0 25px 45px rgba(0, 0, 0, 0.3);
         }
-
         .badge {
             padding: 6px;
             border-radius: 8px;
@@ -48,12 +44,10 @@
             font-size: 0.8rem;
             font-weight: 800;
         }
-
         .person-ADEM { background: linear-gradient(135deg, #00c6ff, #0072ff); }
         .person-FATİH { background: linear-gradient(135deg, #11998e, #38ef7d); }
         .person-RASİM { background: linear-gradient(135deg, #f12711, #f5af19); }
         .person-OĞUZHAN { background: linear-gradient(135deg, #8e2de2, #4a00e0); }
-
         @media print {
             body { background: white; color: black; padding: 0; }
             .calendar-wrapper { box-shadow: none; border: none; background: white; backdrop-filter: none; }
@@ -69,11 +63,14 @@
         <div class="flex justify-between items-center mb-5 pb-4 border-b border-white/10 flex-wrap gap-4">
             <div class="flex items-center gap-3">
                 <div class="text-lg font-semibold text-cyan-400 drop-shadow" id="liveClock">&#128338; Yükleniyor...</div>
-                <div id="syncStatus" class="text-xs px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium">Bulut bağlantısı kuruluyor...</div>
+                <div id="syncStatus" class="text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium">Canlı Senkronizasyon Aktif</div>
             </div>
             <div class="flex gap-2 flex-wrap">
                 <button class="bg-gradient-to-r from-emerald-500 to-teal-600 text-black font-bold px-4 py-2.5 rounded-xl text-sm transition hover:opacity-90 flex items-center gap-1.5" onclick="sendCurrentWeekMail()">
                     &#9993; Bu Haftanın Nöbetçisine Mail Gönder
+                </button>
+                <button class="bg-cyan-500 hover:bg-cyan-600 text-black font-bold px-4 py-2.5 rounded-xl text-sm transition flex items-center gap-1.5" onclick="syncWithCloud()">
+                    &#8635; Değişiklikleri Eşitle
                 </button>
             </div>
         </div>
@@ -135,13 +132,13 @@
         </div>
     </div>
 
-    <!-- Firebase SDK & Application Logic with Permission Fix -->
+    <!-- Firebase SDK & Application Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'nobet-cizelgesi-app-v3';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'nobet-cizelgesi-app-v4';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "demo-key",
             authDomain: "demo.firebaseapp.com",
@@ -162,7 +159,7 @@
             'OĞUZHAN': 'oguzhan.kontek@innova.com.tr'
         };
 
-        let dailyOverrides = JSON.parse(localStorage.getItem('nobet_overrides_local_v3') || '{}');
+        let dailyOverrides = JSON.parse(localStorage.getItem('nobet_overrides_local_v4') || '{}');
         const todayReal = new Date();
         let currentYear = todayReal.getFullYear();
         let currentMonth = todayReal.getMonth();
@@ -310,14 +307,14 @@
                     yeniKisi = yeniKisi.trim().toUpperCase();
                     if (persons.includes(yeniKisi)) {
                         dailyOverrides[dateKey] = yeniKisi;
-                        localStorage.setItem('nobet_overrides_local_v3', JSON.stringify(dailyOverrides));
+                        localStorage.setItem('nobet_overrides_local_v4', JSON.stringify(dailyOverrides));
                         
-                        // Cloud sync update with fallback safety
+                        // Cloud sync update
                         try {
-                            const docRef = doc(db, 'artifacts', appId, 'public_data', 'schedule_overrides_v3');
+                            const docRef = doc(db, 'artifacts', appId, 'public_data', 'schedule_overrides_v4');
                             await setDoc(docRef, dailyOverrides, { merge: true });
                         } catch (err) {
-                            console.warn("Bulut yazma kısıtlı, yerel kaydedildi:", err);
+                            console.warn("Bulut yazma uyarısı:", err);
                         }
 
                         renderCalendar();
@@ -333,6 +330,23 @@
             if (currentMonth > 11) { currentMonth = 0; currentYear++; } 
             else if (currentMonth < 0) { currentMonth = 11; currentYear--; }
             renderCalendar();
+        };
+
+        window.syncWithCloud = async function() {
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'public_data', 'schedule_overrides_v4');
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    dailyOverrides = docSnap.data();
+                    localStorage.setItem('nobet_overrides_local_v4', JSON.stringify(dailyOverrides));
+                    renderCalendar();
+                    alert("Buluttaki en güncel veriler başarıyla yüklendi!");
+                } else {
+                    alert("Bulutta henüz kayıtlı değişiklik bulunmuyor.");
+                }
+            } catch (err) {
+                alert("Eşitleme sırasında bağlantı kurulamadı.");
+            }
         };
 
         window.sendCurrentWeekMail = function() {
@@ -393,30 +407,29 @@
             try {
                 await signInAnonymously(auth);
 
-                const statusEl = document.getElementById('syncStatus');
-                if(statusEl) {
-                    statusEl.innerText = "Bulut senkronizasyonu aktif";
-                    statusEl.className = "text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium";
+                const docRef = doc(db, 'artifacts', appId, 'public_data', 'schedule_overrides_v4');
+                
+                // İlk açılışta veriyi çek
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    dailyOverrides = docSnap.data();
+                    localStorage.setItem('nobet_overrides_local_v4', JSON.stringify(dailyOverrides));
+                    renderCalendar();
                 }
 
-                const docRef = doc(db, 'artifacts', appId, 'public_data', 'schedule_overrides_v3');
+                // Canlı dinleyici
                 onSnapshot(docRef, (docSnap) => {
                     if (docSnap.exists()) {
                         dailyOverrides = docSnap.data();
-                        localStorage.setItem('nobet_overrides_local_v3', JSON.stringify(dailyOverrides));
+                        localStorage.setItem('nobet_overrides_local_v4', JSON.stringify(dailyOverrides));
                         renderCalendar();
                     }
                 }, (error) => {
-                    console.warn("Firestore dinleme hatası (Yerel devam ediliyor):", error);
+                    console.warn("Canlı dinleme uyarısı:", error);
                 });
 
             } catch (err) {
-                console.warn("Auth / Firebase hatası (Yerel depolama aktif):", err);
-                const statusEl = document.getElementById('syncStatus');
-                if(statusEl) {
-                    statusEl.innerText = "Çevrimdışı Mod";
-                    statusEl.className = "text-xs px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium";
-                }
+                console.warn("Çevrimdışı mod:", err);
             }
 
             renderCalendar();
