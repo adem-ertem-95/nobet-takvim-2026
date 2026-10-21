@@ -8,7 +8,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-
         body {
             font-family: 'Poppins', sans-serif;
             min-height: 100vh;
@@ -21,13 +20,11 @@
             justify-content: center;
             align-items: center;
         }
-
         @keyframes gradientBG {
             0% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
             100% { background-position: 0% 50%; }
         }
-
         .calendar-wrapper {
             width: 100%;
             max-width: 1200px;
@@ -39,7 +36,6 @@
             padding: 25px;
             box-shadow: 0 25px 45px rgba(0, 0, 0, 0.3);
         }
-
         .badge {
             padding: 6px;
             border-radius: 8px;
@@ -48,12 +44,10 @@
             font-size: 0.8rem;
             font-weight: 800;
         }
-
         .person-ADEM { background: linear-gradient(135deg, #00c6ff, #0072ff); }
         .person-FATİH { background: linear-gradient(135deg, #11998e, #38ef7d); }
         .person-RASİM { background: linear-gradient(135deg, #f12711, #f5af19); }
         .person-OĞUZHAN { background: linear-gradient(135deg, #8e2de2, #4a00e0); }
-
         @media print {
             body { background: white; color: black; padding: 0; }
             .calendar-wrapper { box-shadow: none; border: none; background: white; backdrop-filter: none; }
@@ -68,11 +62,14 @@
         <div class="flex justify-between items-center mb-5 pb-4 border-b border-white/10 flex-wrap gap-4">
             <div class="flex items-center gap-3">
                 <div class="text-lg font-semibold text-cyan-400 drop-shadow" id="liveClock">&#128338; Yükleniyor...</div>
-                <div id="syncStatus" class="text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium">Sistem Hazır</div>
+                <div id="syncStatus" class="text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium">Bulut Bağlantısı Kuruluyor...</div>
             </div>
             <div class="flex gap-2 flex-wrap">
                 <button class="bg-gradient-to-r from-emerald-500 to-teal-600 text-black font-bold px-4 py-2.5 rounded-xl text-sm transition hover:opacity-90 flex items-center gap-1.5" onclick="sendCurrentWeekMail()">
                     &#9993; Bu Haftanın Nöbetçisine Mail Gönder
+                </button>
+                <button class="bg-white/10 hover:bg-white/25 text-white font-bold px-4 py-2.5 rounded-xl text-sm transition" onclick="forceSyncData()">
+                    &#8635; Veriyi Yenile
                 </button>
             </div>
         </div>
@@ -112,7 +109,6 @@
         </div>
     </div>
 
-    <!-- Custom Modal Dialog -->
     <div id="customModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden">
         <div class="bg-slate-900 border border-white/20 p-6 rounded-2xl max-w-md w-full mx-4 shadow-2xl">
             <h3 id="modalTitle" class="text-lg font-bold text-cyan-400 mb-3">Nöbet Değişikliği</h3>
@@ -134,17 +130,16 @@
         </div>
     </div>
 
-    <!-- JavaScript Application Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'nobet-cizelgesi-app-v3';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'nobet-cizelgesi-app-v5';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "demo-key",
-            authDomain: "demo.firebaseapp.com",
-            projectId: "demo-project"
+            apiKey: "AIzaSyDummyKeyForGitHubPagesRuntime991",
+            authDomain: "nobet-cizelgesi.firebaseapp.com",
+            projectId: "nobet-cizelgesi"
         };
 
         let db = null;
@@ -315,7 +310,7 @@
                                 const docRef = doc(db, 'artifacts', appId, 'public_data', 'schedule_overrides');
                                 await setDoc(docRef, dailyOverrides, { merge: true });
                             } catch (err) {
-                                console.warn("Cloud save notice:", err);
+                                console.warn("Bulut kayıt bildirimi:", err);
                             }
                         }
 
@@ -388,6 +383,22 @@
             window.location.href = mailtoLink;
         };
 
+        window.forceSyncData = async function() {
+            if (!db) return;
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'public_data', 'schedule_overrides');
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    dailyOverrides = docSnap.data();
+                    localStorage.setItem('nobet_daily_overrides', JSON.stringify(dailyOverrides));
+                    renderCalendar();
+                    alert("Veriler buluttan başarıyla yenilendi!");
+                }
+            } catch (err) {
+                console.error("Yenileme hatası:", err);
+            }
+        };
+
         async function initFirebase() {
             try {
                 const app = initializeApp(firebaseConfig);
@@ -402,39 +413,48 @@
 
                 const statusEl = document.getElementById('syncStatus');
                 if(statusEl) {
-                    statusEl.innerText = "Bulut senkronizasyonu aktif";
+                    statusEl.innerText = "Bulut Senkronizasyonu Aktif";
                     statusEl.className = "text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium";
                 }
 
                 const docRef = doc(db, 'artifacts', appId, 'public_data', 'schedule_overrides');
-                
-                onSnapshot(docRef, (docSnap) => {
-                    if (docSnap.exists()) {
-                        dailyOverrides = docSnap.data();
-                        localStorage.setItem('nobet_daily_overrides', JSON.stringify(dailyOverrides));
-                        renderCalendar();
-                    }
-                }, (error) => {
-                    console.warn("Firestore sync notice:", error.message);
-                });
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    dailyOverrides = docSnap.data();
+                    localStorage.setItem('nobet_daily_overrides', JSON.stringify(dailyOverrides));
+                    renderCalendar();
+                }
 
             } catch (err) {
-                console.warn("Cloud fallback active:", err);
+                console.warn("Bulut bağlantı uyarısı:", err);
                 const statusEl = document.getElementById('syncStatus');
                 if(statusEl) {
-                    statusEl.innerText = "Yerel Mod";
+                    statusEl.innerText = "Yerel Senkronizasyon";
                     statusEl.className = "text-xs px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium";
                 }
             }
 
             renderCalendar();
             
-            // Periyodik olarak yerel veriyi tazeleyelim
-            setInterval(() => {
-                let localData = localStorage.getItem('nobet_daily_overrides');
-                if(localData) {
-                    dailyOverrides = JSON.parse(localData);
-                    renderCalendar();
+            // Otomatik bulut veri kontrolü (Her 3 saniyede bir diğer kullanıcılardan gelen güncellemeleri kontrol eder)
+            setInterval(async () => {
+                if (db) {
+                    try {
+                        const docRef = doc(db, 'artifacts', appId, 'public_data', 'schedule_overrides');
+                        const docSnap = await getDoc(docRef);
+                        if (docSnap.exists()) {
+                            let cloudData = docSnap.data();
+                            let localString = JSON.stringify(dailyOverrides);
+                            let cloudString = JSON.stringify(cloudData);
+                            if (localString !== cloudString) {
+                                dailyOverrides = cloudData;
+                                localStorage.setItem('nobet_daily_overrides', JSON.stringify(dailyOverrides));
+                                renderCalendar();
+                            }
+                        }
+                    } catch (e) {
+                        // Arka plan kontrol sessiz hata yönetimi
+                    }
                 }
             }, 3000);
         }
